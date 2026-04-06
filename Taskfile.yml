@@ -42,16 +42,32 @@ tasks:
         echo "All checks passed"
     silent: true
 
-  bump:
-    desc: Bump the patch version (e.g. 1.0 → 1.1)
+  release:
+    desc: "Bump version, commit, tag, and push. Usage: task release [-- minor|major]"
     cmds:
       - |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "ERROR: working tree is dirty — commit your changes first"
+          exit 1
+        fi
+        part="{{.CLI_ARGS | default "patch"}}"
         current=$(jq -r .version manifest.json)
-        major=$(echo "$current" | cut -d. -f1)
-        minor=$(echo "$current" | cut -d. -f2)
-        new="$major.$((minor + 1))"
+        IFS='.' read -r major minor patch <<< "$current"
+        patch=${patch:-0}
+        case "$part" in
+          major) new="$((major + 1)).0.0" ;;
+          minor) new="$major.$((minor + 1)).0" ;;
+          patch) new="$major.$minor.$((patch + 1))" ;;
+          *) echo "Unknown part: $part (use major, minor, or patch)"; exit 1 ;;
+        esac
         jq --arg v "$new" '.version = $v' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
-        echo "Bumped version: $current → $new"
+        npm version "$new" --no-git-tag-version
+        tag="v$new"
+        git add manifest.json package.json package-lock.json
+        git commit -m "$tag"
+        git tag "$tag"
+        git push origin main "$tag"
+        echo "Released $current → $new ($tag)"
 
   test:
     desc: Run unit tests
