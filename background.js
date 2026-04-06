@@ -7,7 +7,8 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
         console.log(`[DEBUG] Received translation request: "${request.text}"`);
         const reverse = request.reverse || false;
         const detectedSourceLang = request.detectedSourceLang || null;
-        translateWithDeepL(request.text, reverse, detectedSourceLang)
+        const context = request.context || null;
+        translateWithDeepL(request.text, reverse, detectedSourceLang, context)
             .then(result => {
                 console.log(`[DEBUG] Translation successful. Response: "${result.text}"`);
                 sendResponse({ translation: result.text, detectedSourceLang: result.detectedSourceLang });
@@ -27,7 +28,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // When source language is "auto", the source_lang param is omitted entirely so
 // DeepL auto-detects it. For reverse translations with auto-detect, `detectedSourceLang`
 // (from a prior forward translation's detected_source_language) is used as target_lang.
-async function translateWithDeepL(text, reverse = false, detectedSourceLang = null) {
+async function translateWithDeepL(text, reverse = false, detectedSourceLang = null, context = null) {
     const settings = await browser.storage.local.get(["sourceLang", "targetLang", "deeplApiKey"]);
 
     const apiKey = settings.deeplApiKey;
@@ -40,16 +41,17 @@ async function translateWithDeepL(text, reverse = false, detectedSourceLang = nu
 
     const url = "https://api-free.deepl.com/v2/translate";
 
-    const params = buildTranslateParams(text, { sourceLang, targetLang });
+    const params = buildTranslateParams(text, { sourceLang, targetLang }, context);
+    console.log("[DEBUG] DeepL request params:", params);
 
     try {
         const response = await fetch(url, {
             method: "POST",
             headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Type": "application/json",
                 "Authorization": `DeepL-Auth-Key ${apiKey}`
             },
-            body: params.toString(),
+            body: JSON.stringify(params),
             mode: "cors"
         });
 

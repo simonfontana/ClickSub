@@ -293,19 +293,67 @@ function restoreHighlights(highlightedSegments) {
     return [];
 }
 
-// Build URLSearchParams for a DeepL /v2/translate POST request.
+// Build a request body object for a DeepL /v2/translate POST request.
 // resolvedLangs: { sourceLang, targetLang } as returned by resolveLanguages().
 // sourceLang may be null (auto-detect) — in that case source_lang is omitted.
-function buildTranslateParams(text, resolvedLangs) {
-    const params = new URLSearchParams();
-    params.append("text", text);
+// context (optional): surrounding sentence text sent as DeepL context for better word translation.
+function buildTranslateParams(text, resolvedLangs, context = null) {
+    // text is wrapped in an array — DeepL's JSON API requires text as an array of strings.
+    const params = { text: [text], target_lang: resolvedLangs.targetLang };
     if (resolvedLangs.sourceLang !== null) {
-        params.append("source_lang", resolvedLangs.sourceLang);
+        params.source_lang = resolvedLangs.sourceLang;
     }
-    params.append("target_lang", resolvedLangs.targetLang);
+    if (context) {
+        params.context = context;
+    }
     return params;
 }
 
+// Factory for a fixed-size ring buffer that records subtitle sentences for use as
+// DeepL translation context. Each call returns an independent instance with its own state.
+// - record(text): appends text; consecutive duplicates are ignored; O(1)
+// - getContext(): returns all entries joined in chronological order, or null if empty; O(size)
+function createSubtitleHistory(size) {
+    const buffer = new Array(size).fill(null);
+    let counter = 0;
+
+    function record(text) {
+        if (!text) return;
+        const last = counter > 0 ? buffer[(counter - 1) % size] : null;
+        if (text === last) return;
+        buffer[counter % size] = text;
+        counter++;
+    }
+
+    function getContext() {
+        const filled = Math.min(counter, size);
+        if (filled === 0) return null;
+        const oldest = counter - filled;
+        const parts = [];
+        for (let i = 0; i < filled; i++) {
+            parts.push(buffer[(oldest + i) % size]);
+        }
+        return parts.join(" ");
+    }
+
+    return { record, getContext };
+}
+
+// Join an array of text parts (one per subtitle line/span), collapsing line-break
+// hyphens so that "komplett-" + "eringar" → "kompletteringar".
+function joinSubtitleParts(parts) {
+    const hyphenRe = /[-\u2010\u2011]$/;
+    let result = "";
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (i > 0) {
+            result += hyphenRe.test(parts[i - 1]) ? "" : " ";
+        }
+        result += hyphenRe.test(part) ? part.slice(0, -1) : part;
+    }
+    return result.replace(/\s+/g, " ").trim();
+}
+
 if (typeof module !== "undefined") {
-    module.exports = { resolveLanguages, joinHyphenatedWord, extractWordAtOffset, getFullSentenceFromSubtitles, getSegmentOffsets, getGlobalTextOffset, getSearchableText, searchableIndexToRaw, highlightRangeInSegment, highlightWordAcrossSegments, highlightSentenceAcrossSegments, restoreHighlights, buildTranslateParams };
+    module.exports = { resolveLanguages, joinHyphenatedWord, extractWordAtOffset, getFullSentenceFromSubtitles, getSegmentOffsets, getGlobalTextOffset, getSearchableText, searchableIndexToRaw, highlightRangeInSegment, highlightWordAcrossSegments, highlightSentenceAcrossSegments, restoreHighlights, buildTranslateParams, createSubtitleHistory, joinSubtitleParts };
 }

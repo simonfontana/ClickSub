@@ -40,6 +40,9 @@ const SUBTITLE_SELECTOR = siteConfig.subtitleSelector;
 // compared against currentTranslationId — if they differ, the result is outdated.
 let currentTranslationId = 0;
 let lastTooltip = null;
+
+// Ring buffer for subtitle history — used to build DeepL translation context.
+const { record: recordSubtitle, getContext: getSubtitleContext } = createSubtitleHistory(5);
 // Stores { el, savedNodes } for each segment that was modified by highlighting,
 // so restoreHighlights() can put the original DOM back.
 let lastHighlightedSegments = [];
@@ -120,6 +123,30 @@ document.addEventListener("click", (event) => {
     }
 }, true);
 
+// Get the text content of a subtitle segment, joining child nodes with spaces so that
+// multi-line cues (e.g. SVT Play spans one <span> per line) don't merge words at line breaks.
+// Delegates to joinSubtitleParts to collapse line-break hyphens (e.g. "komplett-" + "eringar").
+function segmentText(segment) {
+    return joinSubtitleParts(Array.from(segment.childNodes).map(n => n.textContent));
+}
+
+// Concatenate all visible subtitle segments into a single string.
+function getAllSubtitleText(segments = Array.from(document.querySelectorAll(SUBTITLE_SELECTOR))) {
+    return segments.map(segmentText).join(" ").trim();
+}
+
+// Poll for subtitle changes and record them in the ring buffer.
+// MutationObserver is unreliable here because video players frequently tear down and
+// recreate the entire subtitle DOM subtree, detaching the observed container.
+let lastSubtitleText = "";
+setInterval(() => {
+    const text = getAllSubtitleText();
+    if (text && text !== lastSubtitleText) {
+        lastSubtitleText = text;
+        recordSubtitle(text);
+    }
+}, 500);
+
 // Single-click on a subtitle word: translate just that word.
 // Fires immediately for a responsive feel. On double-click, the browser fires
 // a second click with detail=2 before dblclick — we skip that so only the
@@ -194,14 +221,19 @@ async function handleClick(caret, clientX, clientY, captionElement) {
     if (highlightResult) lastHighlightedSegments = highlightResult.highlightedSegments;
     const currentElement = highlightResult?.element || captionElement;
 
-    const wordResult = await browser.runtime.sendMessage({ action: "translate", text: clickedWord });
-    if (translationId !== currentTranslationId) return;
-
     // Determine the full sentence containing the clicked word (for sentence translation on
-    // tooltip click). wordOffset helps disambiguate when the word appears multiple times.
+    // tooltip click, and as context for the word translation). wordOffset helps disambiguate
+    // when the word appears multiple times.
+    // Use raw textContent (not getAllSubtitleText) so sentence substrings match the DOM text
+    // that highlightSentenceAcrossSegments will search in.
     const joinedText = segments.map(s => s.textContent).join(" ");
     const sentenceText = getFullSentenceFromSubtitles(joinedText, clickedWord, highlightResult?.wordOffset)
         || currentElement.textContent.trim();
+
+    // Record the hyphen-collapsed form for DeepL context (reads more naturally).
+    recordSubtitle(getAllSubtitleText(segments));
+    const wordResult = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, context: getSubtitleContext() });
+    if (translationId !== currentTranslationId) return;
     showTooltip({
         wordTranslation: wordResult.translation,
         detectedSourceLang: wordResult.detectedSourceLang || null,
@@ -216,6 +248,7 @@ async function handleClick(caret, clientX, clientY, captionElement) {
 async function handleDoubleClick(event, captionElement) {
     const translationId = ++currentTranslationId;
     const allSegments = Array.from(document.querySelectorAll(SUBTITLE_SELECTOR));
+    // Use raw textContent so sentence substrings match the DOM for highlighting.
     const joinedText = allSegments.map(s => s.textContent).join(" ");
     const captionText = captionElement.textContent.trim();
     // Pass captionText as the "word" — substring search works because captionText
@@ -227,7 +260,12 @@ async function handleDoubleClick(event, captionElement) {
     cleanup();
     lastHighlightedSegments = highlightSentenceAcrossSegments(allSegments, sentenceText, document);
 
-    const sentenceResult = await browser.runtime.sendMessage({ action: "translate", text: sentenceText });
+    // Fetch context *before* recording so the sentence being translated is not included
+    // in its own context (unlike word translation, where including the surrounding
+    // sentence helps DeepL disambiguate).
+    const sentenceContext = getSubtitleContext();
+    recordSubtitle(getAllSubtitleText(allSegments));
+    const sentenceResult = await browser.runtime.sendMessage({ action: "translate", text: sentenceText, context: sentenceContext });
     showTooltip({
         wordTranslation: sentenceResult.translation,
         detectedSourceLang: sentenceResult.detectedSourceLang || null,
@@ -383,7 +421,7 @@ function attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translat
         Object.assign(sentenceDiv.style, { fontSize: "26px", lineHeight: "1.4" });
         tooltip.appendChild(sentenceDiv);
         const sentenceContainer = sentenceDiv;
-        const sentenceResult = await browser.runtime.sendMessage({ action: "translate", text: sentenceText });
+        const sentenceResult = await browser.runtime.sendMessage({ action: "translate", text: sentenceText, context: getSubtitleContext() });
         if (translationId !== currentTranslationId) return;
         if (sentenceResult.detectedSourceLang) state.detectedSourceLang = sentenceResult.detectedSourceLang;
         lastHighlightedSegments = restoreHighlights(lastHighlightedSegments);
@@ -415,6 +453,9 @@ function attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translat
         sentenceContainer.querySelectorAll('.translated-word').forEach(span => {
             span.addEventListener('click', async () => {
                 const clickedWord = span.textContent.trim().replace(/[.,!?;:]/g, '');
+                // No context for reverse translations: DeepL expects context in the source
+                // language, but our context buffer contains source-language subtitles while
+                // the reverse direction translates from target → source.
                 const reverseTranslation = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, reverse: true, detectedSourceLang: state.detectedSourceLang });
 
                 // Reuse existing popup if the same word is clicked again
