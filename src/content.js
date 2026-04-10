@@ -436,18 +436,67 @@ function attachContextMenu(tooltip, state) {
     });
 }
 
-// Wires up sentence-expansion (click the translated word → full sentence view) and
-// reverse translation (click a word in the sentence view → source-language popup).
+// Renders the sentence view: each translated word as a clickable span for reverse translation.
+// Used directly for double-click (sentence already translated) and after expansion for single-click.
+function renderSentenceView({ tooltip, subtitleRect, wordTranslation, state, sentenceText }) {
+    state.currentOriginal = sentenceText;
+    tooltip.textContent = "";
+    const sentenceDiv = document.createElement("div");
+    sentenceDiv.id = "translatedSentence";
+    Object.assign(sentenceDiv.style, { fontSize: "26px", lineHeight: "1.4" });
+    tooltip.appendChild(sentenceDiv);
+
+    // Render each translated word as a clickable span for reverse-translation lookup
+    const words = wordTranslation.split(/\s+/);
+    words.forEach((word, i) => {
+        if (i > 0) sentenceDiv.appendChild(document.createTextNode(" "));
+        const span = document.createElement("span");
+        span.className = "translated-word";
+        Object.assign(span.style, { cursor: "pointer", position: "relative", marginRight: "4px" });
+        span.textContent = word;
+        sentenceDiv.appendChild(span);
+    });
+
+    // Reposition tooltip upward since sentence text is taller than a single word
+    requestAnimationFrame(() => {
+        const newRect = tooltip.getBoundingClientRect();
+        if (subtitleRect) {
+            tooltip.style.top = `${subtitleRect.top - newRect.height - 10}px`;
+        }
+    });
+
+    // Reverse translation: clicking a word in the translated sentence shows a small
+    // popup above it with the word translated back to the source language.
+    sentenceDiv.querySelectorAll('.translated-word').forEach(span => {
+        span.addEventListener('click', async () => {
+            // Remove any existing reverse-translation popups before showing a new one
+            sentenceDiv.querySelectorAll('.reverse-translation').forEach(el => el.remove());
+
+            const clickedWord = span.textContent.trim().replace(/[.,!?;:]/g, '');
+            // No context for reverse translations: DeepL expects context in the source
+            // language, but our context buffer contains source-language subtitles while
+            // the reverse direction translates from target → source.
+            const reverseTranslation = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, reverse: true, detectedSourceLang: state.detectedSourceLang });
+
+            const popup = document.createElement('div');
+            popup.className = 'reverse-translation';
+            Object.assign(popup.style, {
+                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
+                borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
+                zIndex: 10000
+            });
+            span.appendChild(popup);
+            popup.textContent = reverseTranslation.translation;
+        });
+    });
+}
+
+// Wires up sentence-expansion: clicking the translated word fetches the full sentence
+// translation, highlights the sentence in the subtitles, and renders the sentence view.
 function attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translationId, state }) {
     const translatedWordElement = tooltip.querySelector("#translatedWord");
     translatedWordElement.addEventListener("click", async () => {
-        state.currentOriginal = sentenceText;
-        tooltip.textContent = "";
-        const sentenceDiv = document.createElement("div");
-        sentenceDiv.id = "translatedSentence";
-        Object.assign(sentenceDiv.style, { fontSize: "26px", lineHeight: "1.4" });
-        tooltip.appendChild(sentenceDiv);
-        const sentenceContainer = sentenceDiv;
         const sentenceResult = await browser.runtime.sendMessage({ action: "translate", text: sentenceText, context: getSubtitleContext() });
         if (translationId !== currentTranslationId) return;
         if (sentenceResult.detectedSourceLang) state.detectedSourceLang = sentenceResult.detectedSourceLang;
@@ -455,51 +504,7 @@ function attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translat
         const sentenceSegments = Array.from(document.querySelectorAll(SUBTITLE_SELECTOR));
         lastHighlightedSegments = highlightSentenceAcrossSegments(sentenceSegments, sentenceText, document);
 
-        // Render each translated word as a clickable span for reverse-translation lookup
-        const words = sentenceResult.translation.split(/\s+/);
-        sentenceContainer.textContent = "";
-        words.forEach((word, i) => {
-            if (i > 0) sentenceContainer.appendChild(document.createTextNode(" "));
-            const span = document.createElement("span");
-            span.className = "translated-word";
-            Object.assign(span.style, { cursor: "pointer", position: "relative", marginRight: "4px" });
-            span.textContent = word;
-            sentenceContainer.appendChild(span);
-        });
-
-        // Reposition tooltip upward since sentence text is taller than a single word
-        requestAnimationFrame(() => {
-            const newRect = tooltip.getBoundingClientRect();
-            if (subtitleRect) {
-                tooltip.style.top = `${subtitleRect.top - newRect.height - 10}px`;
-            }
-        });
-
-        // Reverse translation: clicking a word in the translated sentence shows a small
-        // popup above it with the word translated back to the source language.
-        sentenceContainer.querySelectorAll('.translated-word').forEach(span => {
-            span.addEventListener('click', async () => {
-                // Remove any existing reverse-translation popups before showing a new one
-                sentenceContainer.querySelectorAll('.reverse-translation').forEach(el => el.remove());
-
-                const clickedWord = span.textContent.trim().replace(/[.,!?;:]/g, '');
-                // No context for reverse translations: DeepL expects context in the source
-                // language, but our context buffer contains source-language subtitles while
-                // the reverse direction translates from target → source.
-                const reverseTranslation = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, reverse: true, detectedSourceLang: state.detectedSourceLang });
-
-                const popup = document.createElement('div');
-                popup.className = 'reverse-translation';
-                Object.assign(popup.style, {
-                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                    background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
-                    borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
-                    zIndex: 10000
-                });
-                span.appendChild(popup);
-                popup.textContent = reverseTranslation.translation;
-            });
-        });
+        renderSentenceView({ tooltip, subtitleRect, wordTranslation: sentenceResult.translation, state, sentenceText });
     });
 }
 
@@ -509,5 +514,12 @@ function showTooltip({ wordTranslation, detectedSourceLang, x, y, originalText, 
     const state = { currentOriginal: originalText, detectedSourceLang };
     const { tooltip, subtitleRect } = createTooltipShell({ wordTranslation, x, y });
     attachContextMenu(tooltip, state);
-    attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translationId, state });
+
+    // Double-click already translated the full sentence — go directly to the
+    // clickable-words sentence view instead of the single-word "expand" view.
+    if (originalText === sentenceText) {
+        renderSentenceView({ tooltip, subtitleRect, wordTranslation, state, sentenceText });
+    } else {
+        attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translationId, state });
+    }
 }
