@@ -267,18 +267,24 @@ async function handleClick(caret, clientX, clientY, captionElement) {
 
 async function handleDoubleClick(event, captionElement, caret) {
     const translationId = ++currentTranslationId;
-    const allSegments = Array.from(document.querySelectorAll(SUBTITLE_SELECTOR));
-    // Use raw textContent so sentence substrings match the DOM for highlighting.
-    const joinedText = allSegments.map(s => s.textContent).join(" ");
     // Extract the clicked word from the caret to find just the sentence it belongs to,
     // rather than using the full caption element text (which could span multiple sentences).
     const caretWord = caret?.offsetNode?.textContent ? extractWordAtOffset(caret.offsetNode.textContent, caret.offset) : null;
     const clickedWord = caretWord?.word || captionElement.textContent.trim();
-    const sentenceText = getFullSentenceFromSubtitles(joinedText, clickedWord) || captionElement.textContent.trim();
+
     siteConfig.pauseVideo();
     siteConfig.onResume(() => cleanup());
 
     cleanup();
+
+    await waitForSubtitleSettle();
+    if (translationId !== currentTranslationId) return;
+
+    // After pause + settle, subtitle DOM may be entirely new nodes. Re-query.
+    const allSegments = Array.from(document.querySelectorAll(SUBTITLE_SELECTOR));
+    // Use raw textContent so sentence substrings match the DOM for highlighting.
+    const joinedText = allSegments.map(s => s.textContent).join(" ");
+    const sentenceText = getFullSentenceFromSubtitles(joinedText, clickedWord) || captionElement.textContent.trim();
     lastHighlightedSegments = highlightSentenceAcrossSegments(allSegments, sentenceText, document);
 
     // Fetch context *before* recording so the sentence being translated is not included
