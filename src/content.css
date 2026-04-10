@@ -4,6 +4,12 @@
     color: black;
 }
 
+/* Highlight style for the active word in the translation tooltip during reverse translation */
+.highlight-reverse {
+    background: rgba(255, 255, 0, 0.4);
+    border-radius: 2px;
+}
+
 /* SVT Play override: use semi-transparent yellow instead of solid, and inherit
    the cue's own text color/size so highlighted text doesn't look broken */
 .vtt-cue-teletext .highlight-translate {

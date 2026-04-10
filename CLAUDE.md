@@ -77,13 +77,13 @@ This is necessary because a word/sentence can span multiple text nodes (e.g. in 
 
 ## Tooltip Interaction Flow
 
-1. **Word view** (single-click): Shows the translated word in bold. Clicking it shows a reverse translation popup (target → source language). Right-click opens a custom context menu with "Copy" / "Copy original".
-2. **Sentence view** (double-click): Each word in the translated sentence is rendered as a clickable `<span>`. Clicking any word shows a reverse translation popup above it (uses `reverse: true` in the message to background.js).
+1. **Word view** (single-click): Shows the translated word in bold. Clicking it highlights the word (yellow background via `.highlight-reverse`) and shows a reverse translation popup above the tooltip (target → source language). Right-click opens a custom context menu with "Copy" / "Copy original".
+2. **Sentence view** (double-click): Each word in the translated sentence is rendered as a clickable `<span>`. Clicking any word highlights it (`.highlight-reverse`) and shows a reverse translation popup above the tooltip (uses `reverse: true` in the message to background.js).
 
 ## content.css
 
 - `content.css` is loaded alongside `content.js` by the manifest
-- Defines `.highlight-translate` styles (yellow highlight for words/sentences)
+- Defines `.highlight-translate` styles (yellow highlight for words/sentences) and `.highlight-reverse` (yellow highlight for the active word in the translation tooltip during reverse translation)
 - SVT Play subtitle elements have `pointer-events: none` set by the player's CSS — the `pointer-events: auto !important` override on `.vtt-cue-teletext` and its ancestors is required for `elementsFromPoint()` and click handlers to work
 - Uses `div:has(.vtt-cue-teletext)` to target the subtitle container parent without relying on unstable generated class names
 

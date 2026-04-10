@@ -436,7 +436,7 @@ function renderSentenceView({ tooltip, subtitleRect, wordTranslation, state }) {
         if (i > 0) sentenceDiv.appendChild(document.createTextNode(" "));
         const span = document.createElement("span");
         span.className = "translated-word";
-        Object.assign(span.style, { cursor: "pointer", position: "relative", marginRight: "4px" });
+        Object.assign(span.style, { cursor: "pointer" });
         span.textContent = word;
         sentenceDiv.appendChild(span);
     });
@@ -449,54 +449,55 @@ function renderSentenceView({ tooltip, subtitleRect, wordTranslation, state }) {
         }
     });
 
-    // Reverse translation: clicking a word in the translated sentence shows a small
-    // popup above it with the word translated back to the source language.
+    // Reverse translation: clicking a word highlights it and shows a popup above the tooltip.
     sentenceDiv.querySelectorAll('.translated-word').forEach(span => {
         span.addEventListener('click', async () => {
-            // Remove any existing reverse-translation popups before showing a new one
-            sentenceDiv.querySelectorAll('.reverse-translation').forEach(el => el.remove());
+            removeReversePopup(tooltip);
+            // Highlight the clicked word, clearing any previous highlight
+            sentenceDiv.querySelectorAll('.translated-word').forEach(s => s.classList.remove('highlight-reverse'));
+            span.classList.add('highlight-reverse');
 
             const clickedWord = span.textContent.trim().replace(/[.,!?;:]/g, '');
-            // No context for reverse translations: DeepL expects context in the source
-            // language, but our context buffer contains source-language subtitles while
-            // the reverse direction translates from target → source.
             const reverseTranslation = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, reverse: true, detectedSourceLang: state.detectedSourceLang });
 
-            const popup = document.createElement('div');
-            popup.className = 'reverse-translation';
-            Object.assign(popup.style, {
-                position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
-                borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
-                zIndex: 10000
-            });
-            span.appendChild(popup);
-            popup.textContent = reverseTranslation.translation;
+            showReversePopup(tooltip, reverseTranslation.translation);
         });
     });
 }
 
+// Removes any existing reverse-translation popup from the tooltip.
+function removeReversePopup(tooltip) {
+    tooltip.querySelectorAll('.reverse-translation').forEach(el => el.remove());
+}
+
+// Shows a reverse-translation popup positioned above the tooltip.
+function showReversePopup(tooltip, text) {
+    removeReversePopup(tooltip);
+    const popup = document.createElement('div');
+    popup.className = 'reverse-translation';
+    Object.assign(popup.style, {
+        position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+        background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '4px 8px',
+        borderRadius: '4px', whiteSpace: 'nowrap', fontSize: '16px',
+        zIndex: 10000, marginBottom: '6px'
+    });
+    tooltip.appendChild(popup);
+    popup.textContent = text;
+}
+
 // Attaches reverse-translation click handler to the translated word element.
-// Clicking the word shows a small popup with it translated back to the source language.
+// Clicking the word highlights it and shows a popup above the tooltip.
 function attachWordReverseTranslation(tooltip, state) {
     const translatedWordElement = tooltip.querySelector("#translatedWord");
-    Object.assign(translatedWordElement.style, { position: "relative" });
+    translatedWordElement.style.cursor = "pointer";
     translatedWordElement.addEventListener("click", async () => {
-        tooltip.querySelectorAll('.reverse-translation').forEach(el => el.remove());
+        removeReversePopup(tooltip);
+        translatedWordElement.classList.add('highlight-reverse');
 
         const word = translatedWordElement.textContent.trim().replace(/[.,!?;:]/g, '');
         const reverseResult = await browser.runtime.sendMessage({ action: "translate", text: word, reverse: true, detectedSourceLang: state.detectedSourceLang });
 
-        const popup = document.createElement('div');
-        popup.className = 'reverse-translation';
-        Object.assign(popup.style, {
-            position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-            background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
-            borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
-            zIndex: 10000
-        });
-        translatedWordElement.appendChild(popup);
-        popup.textContent = reverseResult.translation;
+        showReversePopup(tooltip, reverseResult.translation);
     });
 }
 
