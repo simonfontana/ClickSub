@@ -471,25 +471,24 @@ function attachSentenceExpansion({ tooltip, subtitleRect, sentenceText, translat
         // popup above it with the word translated back to the source language.
         sentenceContainer.querySelectorAll('.translated-word').forEach(span => {
             span.addEventListener('click', async () => {
+                // Remove any existing reverse-translation popups before showing a new one
+                sentenceContainer.querySelectorAll('.reverse-translation').forEach(el => el.remove());
+
                 const clickedWord = span.textContent.trim().replace(/[.,!?;:]/g, '');
                 // No context for reverse translations: DeepL expects context in the source
                 // language, but our context buffer contains source-language subtitles while
                 // the reverse direction translates from target → source.
                 const reverseTranslation = await browser.runtime.sendMessage({ action: "translate", text: clickedWord, reverse: true, detectedSourceLang: state.detectedSourceLang });
 
-                // Reuse existing popup if the same word is clicked again
-                let popup = span.querySelector('.reverse-translation');
-                if (!popup) {
-                    popup = document.createElement('div');
-                    popup.className = 'reverse-translation';
-                    Object.assign(popup.style, {
-                        position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
-                        background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
-                        borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
-                        zIndex: 10000
-                    });
-                    span.appendChild(popup);
-                }
+                const popup = document.createElement('div');
+                popup.className = 'reverse-translation';
+                Object.assign(popup.style, {
+                    position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)',
+                    background: 'rgba(0, 0, 0, 0.85)', color: '#fff', padding: '2px 6px',
+                    borderRadius: '4px', whiteSpace: 'nowrap', fontSize: 'smaller', marginBottom: '4px',
+                    zIndex: 10000
+                });
+                span.appendChild(popup);
                 popup.textContent = reverseTranslation.translation;
             });
         });
