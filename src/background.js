@@ -48,7 +48,7 @@ async function translateWithDeepL(text, reverse = false, detectedSourceLang = nu
 
     const { sourceLang, targetLang } = resolveLanguages(settings, reverse, detectedSourceLang);
 
-    const url = DEEPL_API_ENDPOINT;
+    const url = `${getDeeplBaseUrl(apiKey)}/v2/translate`;
 
     const params = buildTranslateParams(text, { sourceLang, targetLang }, context);
     console.log("[DEBUG] DeepL request params:", params);

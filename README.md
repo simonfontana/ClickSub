@@ -24,7 +24,7 @@ A browser extension that lets you click words in video subtitles to instantly tr
 
 ### Prerequisites
 
-You need a DeepL API key (free tier works). Get one at [deepl.com/your-account/keys](https://www.deepl.com/en/your-account/keys).
+You need a DeepL API key (free or paid). Get one at [deepl.com/your-account/keys](https://www.deepl.com/en/your-account/keys). The extension auto-detects which API endpoint to use based on your key (free keys end in `:fx`).
 
 ### Chrome
 

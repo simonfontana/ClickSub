@@ -34,7 +34,11 @@ const STORAGE_KEY_DEEPL_API_KEY = "deeplApiKey";
 const STORAGE_KEY_SUBTITLE_FONT_SIZE = "subtitleFontSize";
 
 // API configuration
-const DEEPL_API_ENDPOINT = "https://api-free.deepl.com/v2/translate";
+function getDeeplBaseUrl(apiKey) {
+    return apiKey && apiKey.endsWith(":fx")
+        ? "https://api-free.deepl.com"
+        : "https://api.deepl.com";
+}
 
 // Timing (in milliseconds)
 const SUBTITLE_POLL_INTERVAL_MS = 500;

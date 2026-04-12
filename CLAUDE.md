@@ -39,7 +39,7 @@ Four components communicate via `browser.runtime.sendMessage` (plus a shared uti
 **background.js** — translation service layer:
 - Listens for `"translate"` messages from content.js
 - Fetches DeepL API key and language settings from `browser.storage.local`
-- POSTs to `https://api-free.deepl.com/v2/translate`; supports a `reverse` flag that swaps source/target languages
+- POSTs to the DeepL translate endpoint (`api-free.deepl.com` or `api.deepl.com`, auto-detected from the API key); supports a `reverse` flag that swaps source/target languages
 
 **popup.html + popup.js** — settings UI:
 - User configures source/target language and DeepL API key
@@ -116,7 +116,6 @@ This is necessary because a word/sentence can span multiple text nodes (e.g. in 
 
 ### Features to consider
 - **Translation caching**: Every click fires a DeepL request even for previously translated words. A simple in-memory `Map` cache in `background.js` (with a size cap) would reduce API usage and make repeat lookups instant.
-- **Paid DeepL API support**: `api-free.deepl.com` is hardcoded in `background.js` and `popup.js`. Users with paid plans need `api.deepl.com`. Could auto-detect from key format (free keys end in `:fx`) or add a popup setting.
 - **Error state leaves video paused**: If `handleClick` throws after pausing the video (e.g. extension context lost), the video stays paused with no tooltip and no way to dismiss. A `try/finally` ensuring cleanup on failure would help.
 
 ## Setup (fresh clone)

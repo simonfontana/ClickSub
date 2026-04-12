@@ -8,7 +8,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://api-free.deepl.com/*"
+    "https://api-free.deepl.com/*",
+    "https://api.deepl.com/*"
   ],
   "icons": {
     "16": "src/icons/icon16.png",

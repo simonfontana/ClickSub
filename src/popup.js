@@ -70,7 +70,7 @@ apiKeyInput.addEventListener("input", () => {
 // If the key is valid, DeepL returns a translations array; an invalid key
 // returns a 403 error and no translations field.
 async function validateApiKey(key) {
-    const url = "https://api-free.deepl.com/v2/translate";
+    const url = `${getDeeplBaseUrl(key)}/v2/translate`;
     const params = new URLSearchParams();
     params.append("text", "test");
     params.append("source_lang", "EN");
@@ -102,7 +102,7 @@ async function fetchUsage() {
     if (!apiKey) return;
 
     try {
-        const res = await fetch("https://api-free.deepl.com/v2/usage", {
+        const res = await fetch(`${getDeeplBaseUrl(apiKey)}/v2/usage`, {
             headers: { "Authorization": `DeepL-Auth-Key ${apiKey}` }
         });
         const data = await res.json();
