@@ -38,6 +38,16 @@ const siteConfig = SITE_CONFIGS[window.location.hostname];
 if (!siteConfig) throw new Error(`[clicksub] No config for ${window.location.hostname}`);
 const SUBTITLE_SELECTOR = siteConfig.subtitleSelector;
 
+let subtitleFontSize = 20;
+browser.storage.local.get("subtitleFontSize").then(data => {
+    if (data.subtitleFontSize) subtitleFontSize = data.subtitleFontSize;
+});
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.subtitleFontSize) {
+        subtitleFontSize = changes.subtitleFontSize.newValue || 20;
+    }
+});
+
 // SVT Play (Chrome): the browser renders subtitles via native TextTrack / ::cue
 // inside the video element's internal rendering, not as DOM elements we can click.
 // Detect this case and create a custom clickable overlay from the TextTrack cue data.
@@ -75,6 +85,14 @@ if (window.location.hostname === 'www.svtplay.se') {
                 overlay = document.createElement('div');
                 overlay.className = 'clicksub-subtitle-container';
                 video.parentElement.appendChild(overlay);
+                browser.storage.local.get("subtitleFontSize").then(data => {
+                    overlay.style.fontSize = (data.subtitleFontSize || 20) + "px";
+                });
+                browser.storage.onChanged.addListener((changes, area) => {
+                    if (area === "local" && changes.subtitleFontSize) {
+                        overlay.style.fontSize = (changes.subtitleFontSize.newValue || 20) + "px";
+                    }
+                });
             }
             track.addEventListener('cuechange', renderCues);
             renderCues();
@@ -396,7 +414,7 @@ function createTooltipShell({ wordTranslation, x, y }) {
 
     const translatedWordDiv = document.createElement("div");
     translatedWordDiv.id = "translatedWord";
-    Object.assign(translatedWordDiv.style, { fontSize: "22px", fontWeight: "bold", cursor: "pointer" });
+    Object.assign(translatedWordDiv.style, { fontSize: subtitleFontSize + "px", fontWeight: "bold", cursor: "pointer" });
     translatedWordDiv.textContent = wordTranslation;
     tooltip.appendChild(translatedWordDiv);
 
@@ -513,7 +531,7 @@ function renderSentenceView({ tooltip, subtitleRect, wordTranslation, state }) {
     tooltip.textContent = "";
     const sentenceDiv = document.createElement("div");
     sentenceDiv.id = "translatedSentence";
-    Object.assign(sentenceDiv.style, { fontSize: "26px", lineHeight: "1.4" });
+    Object.assign(sentenceDiv.style, { fontSize: subtitleFontSize + "px", lineHeight: "1.4" });
     tooltip.appendChild(sentenceDiv);
 
     // Render each translated word as a clickable span for reverse-translation lookup

@@ -8,14 +8,16 @@ const browser = globalThis.browser ?? globalThis.chrome;
 const sourceSelect = document.getElementById("sourceLang");
 const targetSelect = document.getElementById("targetLang");
 const apiKeyInput = document.getElementById("apiKey");
+const subtitleFontSizeInput = document.getElementById("subtitleFontSize");
 const saveBtn = document.getElementById("saveBtn");
 const statusMsg = document.getElementById("statusMsg");
 
 // Restore previously saved settings into the form fields
-browser.storage.local.get(["sourceLang", "targetLang", "deeplApiKey"]).then(data => {
+browser.storage.local.get(["sourceLang", "targetLang", "deeplApiKey", "subtitleFontSize"]).then(data => {
     if (data.sourceLang) sourceSelect.value = data.sourceLang;
     if (data.targetLang) targetSelect.value = data.targetLang;
     if (data.deeplApiKey) apiKeyInput.value = data.deeplApiKey;
+    if (data.subtitleFontSize) subtitleFontSizeInput.value = data.subtitleFontSize;
 });
 
 // Save on button click
@@ -43,7 +45,8 @@ saveBtn.addEventListener("click", async () => {
     await browser.storage.local.set({
         sourceLang: sourceSelect.value,
         targetLang: targetSelect.value,
-        deeplApiKey: apiKey
+        deeplApiKey: apiKey,
+        subtitleFontSize: parseInt(subtitleFontSizeInput.value, 10) || 20
     });
 
     statusMsg.textContent = "Settings saved!";

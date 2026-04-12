@@ -45,7 +45,7 @@ div:has(.vtt-cue-teletext) {
     display: inline-block;
     background: rgba(0, 0, 0, 0.8);
     color: #fff;
-    font-size: 1.4em;
+    font-size: inherit;
     padding: 4px 8px;
     margin: 2px;
     cursor: default;
