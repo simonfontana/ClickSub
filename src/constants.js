@@ -1,7 +1,7 @@
 // Shared constants for the subtitle translator extension
 
 // Font sizes
-const DEFAULT_SUBTITLE_FONT_SIZE = 30;
+const DEFAULT_SUBTITLE_FONT_SIZE = 40;
 const CONTEXT_MENU_FONT_SIZE = "14px";
 const REVERSE_POPUP_FONT_SIZE = "16px";
 

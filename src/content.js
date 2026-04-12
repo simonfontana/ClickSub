@@ -39,12 +39,24 @@ if (!siteConfig) throw new Error(`[clicksub] No config for ${window.location.hos
 const SUBTITLE_SELECTOR = siteConfig.subtitleSelector;
 
 let subtitleFontSize = DEFAULT_SUBTITLE_FONT_SIZE;
+
+// Inject a <style> element to override subtitle font size via CSS.
+// CSS rules apply automatically to all matching elements (current and future),
+// which handles YouTube's word-by-word subtitle rendering without observers.
+const subtitleStyleEl = document.createElement("style");
+document.head.appendChild(subtitleStyleEl);
+function updateSubtitleSizeRule(size) {
+    subtitleStyleEl.textContent = `${SUBTITLE_SELECTOR} { font-size: ${size}px !important; }`;
+}
+
 browser.storage.local.get(STORAGE_KEY_SUBTITLE_FONT_SIZE).then(data => {
     if (data[STORAGE_KEY_SUBTITLE_FONT_SIZE]) subtitleFontSize = data[STORAGE_KEY_SUBTITLE_FONT_SIZE];
+    updateSubtitleSizeRule(subtitleFontSize);
 });
 browser.storage.onChanged.addListener((changes, area) => {
     if (area === "local" && changes[STORAGE_KEY_SUBTITLE_FONT_SIZE]) {
         subtitleFontSize = changes[STORAGE_KEY_SUBTITLE_FONT_SIZE].newValue || DEFAULT_SUBTITLE_FONT_SIZE;
+        updateSubtitleSizeRule(subtitleFontSize);
     }
 });
 
