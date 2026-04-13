@@ -22,6 +22,9 @@ tasks:
       - manifest.firefox.json
       - manifest.chrome.json
       - LICENSE
+    generates:
+      - out/firefox-build/manifest.json
+      - out/chrome-build/manifest.json
     cmds:
       - for:
           - firefox
@@ -37,6 +40,9 @@ tasks:
   build-zips:
     desc: Package out/<browser>-build/ into zip archives
     deps: [build-dirs]
+    generates:
+      - out/{{.EXT_NAME}}-{{.VERSION}}-firefox.zip
+      - out/{{.EXT_NAME}}-{{.VERSION}}-chrome.zip
     cmds:
       - for:
           - firefox
@@ -53,6 +59,8 @@ tasks:
     sources:
       - package.json
       - package-lock.json
+    generates:
+      - node_modules/**/*
 
   test:
     desc: Run unit tests
