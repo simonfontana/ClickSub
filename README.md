@@ -1,4 +1,4 @@
-# ClickSub
+# SubTranslate
 
 A browser extension that lets you click words in video subtitles to instantly translate them using the DeepL API. Works on YouTube and SVT Play.
 

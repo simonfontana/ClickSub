@@ -35,7 +35,7 @@ const SITE_CONFIGS = {
 };
 
 const siteConfig = SITE_CONFIGS[window.location.hostname];
-if (!siteConfig) throw new Error(`[clicksub] No config for ${window.location.hostname}`);
+if (!siteConfig) throw new Error(`[subtranslate] No config for ${window.location.hostname}`);
 const SUBTITLE_SELECTOR = siteConfig.subtitleSelector;
 
 let subtitleFontSize = DEFAULT_SUBTITLE_FONT_SIZE;
@@ -95,7 +95,7 @@ if (window.location.hostname === 'www.svtplay.se') {
             track.mode = 'hidden'; // keep cues active but hide native rendering
             if (!overlay) {
                 overlay = document.createElement('div');
-                overlay.className = 'clicksub-subtitle-container';
+                overlay.className = 'subtranslate-subtitle-container';
                 video.parentElement.appendChild(overlay);
                 browser.storage.local.get(STORAGE_KEY_SUBTITLE_FONT_SIZE).then(data => {
                     overlay.style.fontSize = (data[STORAGE_KEY_SUBTITLE_FONT_SIZE] || DEFAULT_SUBTITLE_FONT_SIZE) + "px";
@@ -112,7 +112,7 @@ if (window.location.hostname === 'www.svtplay.se') {
 
         function check() {
             // Firefox renders custom .vtt-cue-teletext DOM elements — no overlay needed
-            if (document.querySelector('.vtt-cue-teletext:not(.clicksub-subtitle-container .vtt-cue-teletext)')) return true;
+            if (document.querySelector('.vtt-cue-teletext:not(.subtranslate-subtitle-container .vtt-cue-teletext)')) return true;
             const video = document.querySelector('video');
             if (!video) return false;
             for (let i = 0; i < video.textTracks.length; i++) {
@@ -125,8 +125,8 @@ if (window.location.hostname === 'www.svtplay.se') {
         }
 
         function watchTextTracks(video) {
-            if (video._clicksubTrackWatch) return;
-            video._clicksubTrackWatch = true;
+            if (video._subtranslateTrackWatch) return;
+            video._subtranslateTrackWatch = true;
             video.textTracks.addEventListener('change', () => {
                 if (currentTrack && currentTrack.mode === 'disabled') {
                     // User turned off subtitles

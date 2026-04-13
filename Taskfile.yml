@@ -3,7 +3,7 @@ version: "3"
 interval: 250ms
 
 vars:
-  EXT_NAME: clicksub
+  EXT_NAME: subtranslate
   VERSION:
     sh: jq -r .version manifest.firefox.json
 

@@ -31,7 +31,7 @@ div:has(.vtt-cue-teletext) {
 
 /* SVT Play (Chrome): custom subtitle overlay created from native TextTrack data.
    Positioned at the bottom of the video, styled to match SVT Play's native subtitles. */
-.clicksub-subtitle-container {
+.subtranslate-subtitle-container {
     position: absolute;
     bottom: 10%;
     left: 0;
@@ -41,7 +41,7 @@ div:has(.vtt-cue-teletext) {
     z-index: 10;
 }
 
-.clicksub-subtitle-container .vtt-cue-teletext {
+.subtranslate-subtitle-container .vtt-cue-teletext {
     display: inline-block;
     background: rgba(0, 0, 0, 0.8);
     color: #fff;
@@ -51,6 +51,6 @@ div:has(.vtt-cue-teletext) {
     cursor: default;
 }
 
-.clicksub-subtitle-container .vtt-cue-teletext > span {
+.subtranslate-subtitle-container .vtt-cue-teletext > span {
     display: block;
 }

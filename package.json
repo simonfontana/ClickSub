@@ -1,5 +1,5 @@
 {
-  "name": "clicksub",
+  "name": "subtranslate",
   "version": "1.6.0",
   "description": "A browser extension that lets you click words in video subtitles to instantly translate them using the DeepL API. Works on YouTube and SVT Play.",
   "main": "background.js",
@@ -11,16 +11,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/simonfontana/ClickSub.git"
+    "url": "git+https://github.com/simonfontana/SubTranslate.git"
   },
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/simonfontana/ClickSub/issues"
+    "url": "https://github.com/simonfontana/SubTranslate/issues"
   },
-  "homepage": "https://github.com/simonfontana/ClickSub#readme",
+  "homepage": "https://github.com/simonfontana/SubTranslate#readme",
   "devDependencies": {
     "jsdom": "^29.0.1"
   }

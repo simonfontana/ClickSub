@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "ClickSub",
+  "name": "SubTranslate",
   "version": "1.6.0",
   "description": "Click a word in video subtitles to translate it using DeepL.",
   "permissions": [
@@ -37,7 +37,7 @@
     }
   ],
   "action": {
-    "default_title": "ClickSub",
+    "default_title": "SubTranslate",
     "default_popup": "src/popup.html",
     "default_icon": {
       "16": "src/icons/icon16.png",
