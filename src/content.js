@@ -444,7 +444,7 @@ function createTooltipShell({ wordTranslation, x, y }) {
         opacity: "0",
     });
 
-    document.body.appendChild(tooltip);
+    (document.fullscreenElement ?? document.body).appendChild(tooltip);
     lastTooltip = tooltip;
 
     // Position tooltip above the subtitle element (centered horizontally on it).
@@ -527,7 +527,7 @@ function attachContextMenu(tooltip, state) {
 
         menu.appendChild(copyItem);
         menu.appendChild(copyOriginalItem);
-        document.body.appendChild(menu);
+        (document.fullscreenElement ?? document.body).appendChild(menu);
 
         requestAnimationFrame(() => {
             menu.style.top = `${event.clientY - menu.offsetHeight}px`;
