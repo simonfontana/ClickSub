@@ -1,7 +1,7 @@
 // Shared constants for the subtitle translator extension
 
 // Font sizes
-const DEFAULT_SUBTITLE_FONT_SIZE = 40;
+const DEFAULT_SUBTITLE_FONT_SIZE = 30;
 const CONTEXT_MENU_FONT_SIZE = "14px";
 
 // Highlight color (applied to translated word/sentence and reverse-translation highlights)
