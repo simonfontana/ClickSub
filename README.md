@@ -16,11 +16,11 @@ A browser extension that lets you click words in video subtitles to instantly tr
 
 ## Supported Sites
 
-| Site | Subtitle selector |
-|------|-------------------|
-| YouTube | `.ytp-caption-segment` |
-| SVT Play | `.vtt-cue-teletext` |
-| svt.se | `.vtt-cue-teletext` (custom TextTrack overlay) |
+| Site | Adapter | How subtitles are observed |
+|------|---------|---------------------------|
+| YouTube | `src/adapters/youtube.js` | MutationObserver on `.ytp-caption-segment` |
+| SVT Play | `src/adapters/svtplay.js` | Firefox: MutationObserver on native DOM; Chrome: TextTrack `cuechange` |
+| svt.se | `src/adapters/svtse.js` | Four paths: Firefox TextTrack DOM, Chrome TextTrack, React DOM, portrait overlay |
 
 ## Installation
 
@@ -91,11 +91,12 @@ npm install
 ### Adding a New Site
 
 1. Inspect the live subtitle DOM while a video is playing (the subtitle elements are injected dynamically and won't appear in page source)
-2. Find a stable, semantic CSS selector for the subtitle text element
-3. Add an entry to `SITE_CONFIGS` in `src/content.js` with `subtitleSelector`, `suppressEvents`, and video control methods
-4. Add the hostname pattern to `content_scripts[0].matches` in both `manifest.firefox.json` and `manifest.chrome.json`
-5. If the site's subtitle elements have `pointer-events: none`, add a CSS override in `src/content.css`
-6. Test: single-click word translation, double-click sentence translation, hyphenated words, overlay handling
+2. Create an adapter in `src/adapters/<sitename>.js` — a factory function that observes the site's subtitles, hides the originals, and feeds text to the shared overlay
+3. Register the adapter in the `ADAPTERS` map in `src/content.js`
+4. Add the hostname pattern to `content_scripts[0].matches` and the adapter JS file to `content_scripts[0].js` in both manifests
+5. Test: single-click word translation, double-click sentence translation, right-click context menu, hyphenated words, fullscreen mode
+
+See [docs/ai/adding-new-site.md](docs/ai/adding-new-site.md) for detailed instructions.
 
 ## Project Structure
 
@@ -103,9 +104,16 @@ npm install
 manifest.firefox.json  - Firefox manifest (MV2)
 manifest.chrome.json   - Chrome manifest (MV3)
 src/
+  constants.js         - Storage keys and default values
   utils.js             - Shared pure functions (language resolution, highlighting, DOM helpers)
+  adapters/            - Per-site subtitle observation and hiding
+    texttrack-helper.js  - Shared helper for TextTrack-based sites
+    youtube.js           - YouTube adapter (MutationObserver)
+    svtplay.js           - SVT Play adapter (DOM or TextTrack)
+    svtse.js             - svt.se adapter (four rendering paths)
+  subtitle-overlay.js  - Shared overlay renderer (receives cues from adapters)
   content.js           - Injected into video pages; handles clicks, highlighting, tooltips
-  content.css          - Highlight styles and pointer-events overrides
+  content.css          - Overlay layout, highlight styles, pointer-events overrides
   background.js        - Receives translation requests, calls DeepL API
   popup.html           - Settings UI (language selection, API key)
   popup.js             - Settings persistence and API key validation

@@ -22,7 +22,7 @@ Deeper reference material lives in [docs/ai/](docs/ai/):
 
 | Document | When to read it |
 |---|---|
-| [architecture.md](docs/ai/architecture.md) | Component overview — background.js, content.js, popup, utils.js and how they communicate |
+| [architecture.md](docs/ai/architecture.md) | Component overview — adapters, overlay, content.js, background.js, popup, utils.js and how they communicate |
 | [content-script.md](docs/ai/content-script.md) | Key behaviors in content.js: word/sentence detection, highlighting, tooltip flow, overlay handling, content.css |
 | [dom-handling.md](docs/ai/dom-handling.md) | How stale DOM references and multi-path subtitle rendering are handled |
 | [supported-sites.md](docs/ai/supported-sites.md) | Per-site details for YouTube, SVT Play, and svt.se |

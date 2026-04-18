@@ -1,22 +1,36 @@
-# DOM Handling — Staleness, Re-renders, and Multi-Path Rendering
+# DOM Handling — Adapter/Overlay Architecture
 
-## Staleness & DOM Re-render Handling
+## Capture-and-Replace Pattern
 
-Several mechanisms work together to handle the fact that pausing the video can cause the site to re-render subtitle elements, invalidating captured DOM references. The pause/settle/re-query flow only runs when pause-on-translate is enabled (the default); when disabled, translations happen on the live DOM without pausing, but the global-offset and pre-pause rect capture still apply:
+All sites use the same pattern: a per-site **adapter** observes the site's native subtitle elements, extracts their text, hides the originals, and feeds the text to a shared **overlay** that renders it in our own DOM. All feature code (click handling, highlighting, tooltips, translation) operates exclusively on the overlay's `.subtranslate-cue` elements.
 
-- **Caret captured immediately**: `caretInSubtitle()` is called synchronously at click time, because the DOM may change after the video is paused.
-- **Global text offset**: `getGlobalTextOffset()` converts a (node, charStart) pair into a numeric position in the virtual concatenation of all segments' textContent. This survives DOM re-renders because it's a character position, not a node reference.
-- **Subtitle rect captured pre-pause**: `captionElement.getBoundingClientRect()` is called before pausing for tooltip positioning. Some sites (e.g. svt.se portrait videos via React) clear or hide subtitle elements when the video pauses, making post-pause rect queries return all-zero dimensions. Capturing before pause ensures the tooltip always positions above the subtitle area regardless of what the site does to the DOM after pause.
-- **`waitForSubtitleSettle()`**: After pausing, waits for the subtitle container's MutationObserver to go quiet (50ms after last mutation, or 150ms timeout if no mutation at all).
-- **Re-query after settle**: After the DOM settles, subtitle elements are re-queried from the DOM and `highlightWordAcrossSegments()` uses the saved global offset to find the correct word occurrence in the new nodes.
+This architectural separation means site-specific DOM concerns (selectors, rendering paths, event interception) live only in the adapter. Features never touch the site's DOM.
+
+## How Pausing Works (Simplified)
+
+Because the overlay is our own DOM, the pre/post-pause complexity from the original architecture is gone:
+
+1. User clicks a word in the overlay
+2. Caret position and word are extracted synchronously from our overlay elements
+3. The overlay is **frozen** (stops accepting cue updates from the adapter)
+4. The word is highlighted immediately in the frozen overlay
+5. Video is paused (if pause-on-translate is enabled)
+6. Translation is fetched and tooltip is displayed
+
+No `waitForSubtitleSettle()` is needed — our overlay doesn't re-render on pause. No `segmentsForCaption()` is needed — there's only one rendering path (the overlay). No pre-capture of `subtitleRect` is needed — the overlay element persists and can be queried at any time.
+
+On `cleanup()` (tooltip dismissed, video resumed), the overlay is **unfrozen** and re-renders with the latest cues the adapter sent while frozen.
+
+## Staleness Protection (Still Applies)
+
 - **`currentTranslationId`**: Monotonically increasing counter that detects stale async responses. Each click bumps the ID; when a translation response arrives, it's discarded if the ID no longer matches.
+- **Global text offset**: `getGlobalTextOffset()` converts a (node, charStart) pair into a character position. Since the overlay is frozen during translation, the segments don't change — but the offset is still used to disambiguate when the same word appears multiple times.
 
-## Multi-Path Rendering and `segmentsForCaption`
+## Adapter Hiding Strategy
 
-`SUBTITLE_SELECTOR` is a CSS union across every rendering path for a site (e.g. for svt.se it matches elements from the TextTrack overlay, the `data-rt` React container, and the `VideoPlayerSubtitles__text` element). On sites where multiple paths are active simultaneously, `querySelectorAll(SUBTITLE_SELECTOR)` returns elements from all of them at once.
+Each adapter hides the site's original subtitles while keeping them observable:
 
-This matters for two operations:
-1. **`globalOffset` arithmetic** in `handleClick`: the offset is computed as a character position in the concatenation of all queried segments. If segment count differs between the pre-pause query (which computed the offset) and the post-settle query (which resolves it), the wrong word is highlighted.
-2. **Sentence highlighting** in `handleDoubleClick`: `highlightSentenceAcrossSegments` searches all queried segments in order. If the clicked element belongs to path 3 (portrait) but path 1 (TextTrack) appears earlier in the list, the sentence match lands in the wrong element and highlights nothing visible.
-
-`segmentsForCaption(captionElement)` filters the result of `querySelectorAll(SUBTITLE_SELECTOR)` to only segments that share the direct parent of `captionElement`, making all segment queries path-local. Both handlers use it for every segment query (both pre-pause and post-settle). Any new site that has duplicate or mirrored subtitle containers will be handled correctly without special-casing.
+- **YouTube**: CSS `visibility: hidden` on `.caption-window` — elements stay in DOM, MutationObserver still fires
+- **SVT Play/svt.se (Chrome TextTrack)**: `track.mode = 'hidden'` — cues remain active (cuechange fires) but native rendering is suppressed
+- **SVT Play/svt.se (Firefox)**: CSS `visibility: hidden` on native `.vtt-cue-teletext` elements
+- **svt.se (React/portrait)**: CSS `visibility: hidden` on the specific rendering path's elements; aside-panel duplicate hidden with `display: none` for paths 1-3

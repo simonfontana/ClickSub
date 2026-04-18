@@ -1,12 +1,31 @@
 # Adding a New Site
 
-1. Inspect the live subtitle DOM while a video is playing (page source will not show subtitle elements)
-2. Find a stable, semantic CSS selector for the subtitle text element
-3. If the site uses a standard `<video>` element, call `makeVideoSiteConfig(selector)` and add the result to `SITE_CONFIGS` in `content.js`; otherwise write a custom config object with `subtitleSelector`, `suppressEvents`, and video control methods
-4. Add the hostname pattern to `content_scripts[0].matches` in both `manifest.firefox.json` and `manifest.chrome.json`
-5. If the site's subtitle elements have `pointer-events: none`, add a CSS override in `content.css`
-6. If the site renders subtitles in multiple DOM locations simultaneously (player overlay + aside-panel duplicate, accessibility mirror, etc.), add each location's selector to the union in `subtitleSelector` — `segmentsForCaption` will automatically constrain all queries to the clicked element's path, so word and sentence highlighting will work correctly without any extra special-casing
-7. Test: single-click word translation, double-click sentence translation, hyphenated words, overlay handling
+1. **Inspect the live subtitle DOM** while a video is playing (page source will not show subtitle elements). Determine how the site renders subtitles: DOM elements via MutationObserver, TextTrack API (`cuechange`), or both (browser-dependent).
 
-See [supported-sites.md](supported-sites.md) for examples of how existing sites are configured.
-See [dom-handling.md](dom-handling.md) for how multi-path rendering and stale DOM references are handled automatically.
+2. **Create an adapter** in `src/adapters/<sitename>.js`. The adapter is a factory function (e.g. `createExampleAdapter()`) that returns an object with these methods:
+   - `startObserving(onCues)` — observe the site's subtitle rendering and call `onCues(lines)` whenever subtitles change. `lines` is an array of strings (one per cue); empty array = no subtitles visible. Must return a `stop()` function that tears down all observers and restores hidden elements.
+   - `getOverlayAnchor()` — return the DOM element to append our overlay to (typically `video.parentElement` or a positioned container inside the player). Must work in fullscreen.
+   - `pauseVideo()` / `resumeVideo()` — control the `<video>` element (or the site's player API if no standard `<video>` exists).
+   - `onResume(callback)` — register a one-shot listener for when the video resumes playing. Return an unsubscribe function.
+
+3. **Hide the site's native subtitles** inside the adapter. Common strategies:
+   - CSS `visibility: hidden` on DOM-rendered subtitle elements (keeps them observable)
+   - `track.mode = 'hidden'` for TextTrack-based subtitles (cues stay active but native rendering is suppressed)
+   - Use the shared `observeTextTrack(video, onCues)` helper from `src/adapters/texttrack-helper.js` if the site uses the TextTrack API
+
+4. **Register the adapter** in the `ADAPTERS` map at the top of `src/content.js`:
+   ```js
+   const ADAPTERS = {
+       ...
+       "www.example.com": createExampleAdapter,
+   };
+   ```
+
+5. **Update both manifests** (`manifest.chrome.json` and `manifest.firefox.json`):
+   - Add the hostname pattern to `content_scripts[0].matches`
+   - Add `src/adapters/<sitename>.js` to `content_scripts[0].js` (before `src/content.js`)
+
+6. **Test**: single-click word translation, double-click sentence translation, right-click context menu, hyphenated words across lines, fullscreen mode, pause-on-translate on/off.
+
+See [supported-sites.md](supported-sites.md) for examples of existing adapters.
+See [dom-handling.md](dom-handling.md) for how the adapter/overlay architecture works.

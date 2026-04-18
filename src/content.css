@@ -12,60 +12,35 @@
     border-radius: 2px;
 }
 
-/* SVT Play override: use semi-transparent highlight instead of solid, and inherit
-   the cue's own text color/size so highlighted text doesn't look broken */
-.vtt-cue-teletext .highlight-translate {
-    color: inherit;
-    background: var(--subtranslate-highlight-soft, rgba(255, 255, 0, 0.4));
-    font-size: inherit;
-}
-
-/* SVT Play: the subtitle cue elements and their ancestors have pointer-events:none
-   set by the player's CSS. Without this override, elementsFromPoint() won't find
-   the subtitle elements and clicks won't reach our handlers.
-   div:has(.vtt-cue-teletext) targets the parent container without relying on
-   unstable generated class names. */
-.vtt-cue-teletext,
-.vtt-cue-teletext *,
-div:has(.vtt-cue-teletext) {
-    pointer-events: auto !important;
-}
-
-/* svt.se: the subtitles-container and its contents have pointer-events:none set by the player.
-   Override so clicks and elementsFromPoint() can reach the subtitle elements. */
-[data-rt="subtitles-container"],
-[data-rt="subtitles-container"] * {
-    pointer-events: auto !important;
-}
-
-/* svt.se: portrait/vertical video subtitle overlay also has pointer-events:none. */
-[class*="VideoPlayerSubtitles__root"],
-[class*="VideoPlayerSubtitles__root"] * {
-    pointer-events: auto !important;
-}
-
-/* SVT Play (Chrome): custom subtitle overlay created from native TextTrack data.
-   Positioned at the bottom of the video, styled to match SVT Play's native subtitles. */
-.subtranslate-subtitle-container {
+/* Shared subtitle overlay — positioned inside the video player so it works in fullscreen.
+   pointer-events:none on the container lets clicks pass through to the player (for
+   play/pause toggling); only the cue text spans are clickable (pointer-events:auto). */
+.subtranslate-subtitle-overlay {
     position: absolute;
     bottom: 10%;
     left: 0;
     right: 0;
     text-align: center;
-    pointer-events: auto;
-    z-index: 10;
+    pointer-events: none;
+    z-index: 9998;
 }
 
-.subtranslate-subtitle-container .vtt-cue-teletext {
-    display: inline-block;
+.subtranslate-cue {
+    display: block;
+    width: fit-content;
+    max-width: 90%;
+    white-space: normal;
     background: rgba(0, 0, 0, 0.8);
     color: #fff;
-    font-size: inherit;
     padding: 4px 8px;
-    margin: 2px;
+    margin: 2px auto;
     cursor: default;
+    pointer-events: auto;
 }
 
-.subtranslate-subtitle-container .vtt-cue-teletext > span {
-    display: block;
+/* Use semi-transparent highlight on subtitle cues so highlighted text blends with
+   the dark subtitle background rather than using the solid highlight color. */
+.subtranslate-cue .highlight-translate {
+    color: inherit;
+    background: var(--subtranslate-highlight-soft, rgba(255, 255, 0, 0.4));
 }

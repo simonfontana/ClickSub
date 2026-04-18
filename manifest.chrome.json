@@ -28,6 +28,11 @@
       "js": [
         "src/constants.js",
         "src/utils.js",
+        "src/adapters/texttrack-helper.js",
+        "src/adapters/youtube.js",
+        "src/adapters/svtplay.js",
+        "src/adapters/svtse.js",
+        "src/subtitle-overlay.js",
         "src/content.js"
       ],
       "css": [

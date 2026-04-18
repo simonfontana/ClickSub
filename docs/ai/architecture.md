@@ -1,6 +1,6 @@
 # Architecture
 
-Four components communicate via `browser.runtime.sendMessage` (plus a shared utility module). Each JS file defines `const browser = globalThis.browser ?? globalThis.chrome` so the same code works in both Firefox (native `browser` API) and Chrome (`chrome` API).
+Five component layers communicate via `browser.runtime.sendMessage` (plus shared utilities). Each JS file defines `const browser = globalThis.browser ?? globalThis.chrome` so the same code works in both Firefox (native `browser` API) and Chrome (`chrome` API).
 
 ## Components
 
@@ -11,25 +11,37 @@ Four components communicate via `browser.runtime.sendMessage` (plus a shared uti
 - Offset arithmetic: `getSegmentOffsets()`, `getGlobalTextOffset()`, `getSearchableText()` — convert DOM positions to global character offsets that survive re-renders
 - Subtitle history: `createSubtitleHistory(size)` — ring buffer factory for recording subtitle lines, used as DeepL translation context
 
+**adapters/** (per-site subtitle observation) — each adapter observes the site's native subtitle DOM, extracts text, hides the originals, and reports cue changes:
+- `texttrack-helper.js` — shared helper for sites that render subtitles via the browser's TextTrack API (SVT Play Chrome, svt.se Chrome)
+- `youtube.js` — observes `.ytp-caption-segment` mutations, hides `.caption-window` via CSS
+- `svtplay.js` — two paths: Firefox native DOM (MutationObserver) or Chrome TextTrack (cuechange)
+- `svtse.js` — four paths in priority order: Firefox TextTrack DOM, Chrome TextTrack, React DOM, portrait/vertical clip
+
+**subtitle-overlay.js** — shared subtitle renderer that receives cue text from the adapter and renders it in our own `.subtranslate-cue` spans. Supports freeze/unfreeze for translation interactions.
+
 **content.js** (injected into supported video pages) — handles all user interaction:
-- Site-specific behaviour is configured in the `SITE_CONFIGS` object at the top of the file; add new sites there
-- Listens for `click` and `dblclick` on subtitle segment elements (selector is per-site)
-- Single click: extracts the clicked word using `getCaretPosition()` (a cross-browser wrapper around `caretPositionFromPoint`/`caretRangeFromPoint`), highlights it, requests translation
-- Double click: extracts the full sentence across all visible caption segments, highlights it, requests translation
-- Video is paused when a translation is triggered (configurable via the pause-on-translate setting in the Advanced tab; when disabled, translation happens without pausing)
-- Recent subtitle lines are recorded in a ring buffer and sent as DeepL context for better word disambiguation
-- Renders tooltip with translated text; clicking the translated word (single-click) or any word in the sentence translation (double-click) shows a reverse translation popup (target → source language)
-- Right-click on a subtitle word shows a context menu with "Copy" (word), "Copy sentence", and "Look up on Wiktionary" (opens the word's Wiktionary entry, jumping to the source-language section)
+- Selects the adapter for the current site and wires it to the overlay
+- Listens for `click` and `dblclick` on `.subtranslate-cue` elements (same for all sites)
+- Single click: extracts the clicked word using `getCaretPosition()`, highlights it, requests translation
+- Double click: extracts the full sentence across all visible cue segments, highlights it, requests translation
+- Video is paused when a translation is triggered (configurable via the pause-on-translate setting)
+- Recent subtitle lines are recorded in a ring buffer and sent as DeepL context for word disambiguation
+- Renders tooltip with translated text; clicking the translated word shows a reverse translation popup
+- Right-click on a subtitle word shows a context menu with "Copy", "Copy sentence", and "Look up on Wiktionary"
 
 **background.js** — translation service layer:
 - Listens for `"translate"` messages from content.js
 - Fetches DeepL API key and language settings from `browser.storage.local`
-- POSTs to the DeepL translate endpoint (`api-free.deepl.com` or `api.deepl.com`, auto-detected from the API key); supports a `reverse` flag that swaps source/target languages
+- POSTs to the DeepL translate endpoint; supports a `reverse` flag that swaps source/target languages
 
 **popup.html + popup.js** — settings UI:
 - Three tabs: **General** (source/target language, DeepL API key), **Appearance** (subtitle font size, highlight color), **Advanced** (context history size, translation model, pause-on-translate toggle, reset-to-defaults button)
-- All settings auto-save on change (no Save button); most persist immediately, API key is validated against DeepL with an 800ms debounce before saving
-- API key field shows plain text while focused, masked on blur
-- Settings persisted to `browser.storage.local`; all storage keys and defaults live in `src/constants.js` (`STORAGE_KEY_*` / `DEFAULT_*`) — read from there rather than hardcoding key names
-- Reset-to-defaults button on the Advanced tab clears only the advanced settings; language, API key, and appearance are intentionally preserved
-- Footer shows DeepL API usage stats (characters used / limit) with a color-coded progress bar (blue → yellow at 75% → red at 90%); fetched from `/v2/usage` on popup open
+- All settings auto-save on change; API key is validated against DeepL with an 800ms debounce
+- Settings persisted to `browser.storage.local`; all storage keys and defaults live in `src/constants.js`
+
+## Data Flow
+
+```
+Site DOM  -->  [Adapter]  --cue text-->  [Overlay]  <--clicks/highlights--  [content.js]  --translate-->  [background.js]  -->  DeepL API
+                (per site)              (shared)                            (shared)
+```
